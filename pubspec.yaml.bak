@@ -1,0 +1,30 @@
+name: math_solver
+description: Une application pour résoudre des problèmes mathématiques
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.3.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.5
+  image_picker: ^0.8.7+3  # More stable version
+  http: ^0.13.5
+  http_parser: ^4.0.2
+  mime_type: ^1.0.0
+  file_picker: ^5.3.3    # Stable version
+  shared_preferences: ^2.1.1
+  # Removed flutter_web_auth since you're using LoginPage
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.1  # Downgraded for stability
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/

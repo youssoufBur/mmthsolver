@@ -1,0 +1,43 @@
+name: math_solver
+description: Une application pour résoudre des problèmes mathématiques
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.3.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  image_picker: ^1.0.4
+  http: ^1.1.0
+  http_parser: ^4.0.2
+  mime_type: ^1.0.0
+  file_picker: ^6.1.2
+  shared_preferences: ^2.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
+  
+  plugin:
+    platforms:
+      android:
+        package: com.mr.flutter.plugin.filepicker
+        pluginClass: FilePickerPlugin
+      ios:
+        pluginClass: FilePickerPlugin
+      # Remove or comment out the desktop platform entries
+      # linux:
+      #   default_package: false
+      # macos:
+      #   default_package: false
+      # windows:
+      #   default_package: false
