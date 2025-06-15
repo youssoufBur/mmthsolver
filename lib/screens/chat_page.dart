@@ -1,11 +1,11 @@
 import 'dart:io';
-import 'dart:convert'; // Add this import for JSON encoding/decoding
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart'; // Keep this for MediaType
-import 'package:mime_type/mime_type.dart'; // Keep this for mime() function
+import 'package:http_parser/http_parser.dart';
+import 'package:mime_type/mime_type.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -19,7 +19,7 @@ class _ChatPageState extends State<ChatPage> {
   final List<ChatMessage> _messages = [];
   File? _selectedFile;
   bool _isLoading = false;
-  String _fileName = ''; // Correctly declared as non-final
+  String _fileName = '';
   final ImagePicker _picker = ImagePicker();
   final String _apiEndpoint = 'https://dramane10.pythonanywhere.com/api/solve/';
 
@@ -125,7 +125,7 @@ class _ChatPageState extends State<ChatPage> {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx', 'txt'], // Added 'txt'
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx', 'txt'],
       );
 
       if (result != null) {
@@ -147,7 +147,6 @@ class _ChatPageState extends State<ChatPage> {
       if (pickedFile != null) {
         setState(() {
           _selectedFile = File(pickedFile.path);
-          // Corrected: Use _fileName (the state variable)
           _fileName = 'image_${DateTime.now().millisecondsSinceEpoch}.jpg';
         });
       }
@@ -162,18 +161,16 @@ class _ChatPageState extends State<ChatPage> {
     try {
       var request = http.MultipartRequest('POST', Uri.parse(_apiEndpoint));
 
-      // Add the text
       if (text.isNotEmpty) {
         request.fields['text'] = text;
       }
 
-      // Add the file if it exists
       if (file != null) {
         var mimeTypeString = mime(file.path) ?? 'application/octet-stream';
         var fileTypeParts = mimeTypeString.split('/');
 
         request.files.add(await http.MultipartFile.fromPath(
-          'file', // This 'file' key must match request.FILES.get('file') in Django
+          'file',
           file.path,
           contentType: MediaType(fileTypeParts[0], fileTypeParts[1]),
         ));
@@ -182,19 +179,16 @@ class _ChatPageState extends State<ChatPage> {
       var response = await request.send();
 
       if (response.statusCode == 200) {
-        // Assuming your API returns a JSON with a 'solution' field
         final responseBody = await response.stream.bytesToString();
         final Map<String, dynamic> responseData = json.decode(responseBody);
         return responseData['solution'] ?? 'Pas de solution trouvée.';
       } else {
-        // Handle API errors
         final errorBody = await response.stream.bytesToString();
         String errorMessage = 'Erreur inconnue de l\'API.';
         try {
           final Map<String, dynamic> errorData = json.decode(errorBody);
           errorMessage = errorData['error'] ?? errorMessage;
         } catch (_) {
-          // If response body is not JSON, use the raw error message
           errorMessage = 'Erreur de l\'API: ${response.statusCode} - ${response.reasonPhrase}. Raw response: $errorBody';
         }
         return 'Erreur de l\'IA: $errorMessage';
@@ -220,12 +214,11 @@ class _ChatPageState extends State<ChatPage> {
       _isLoading = true;
     });
 
-    // Call the API
     final responseText = await _sendToAPI(text, _selectedFile);
 
     setState(() {
       _messages.add(ChatMessage(
-        text: responseText, // Display the API response
+        text: responseText,
         isUser: false,
       ));
       _selectedFile = null;
@@ -241,7 +234,7 @@ class _ChatPageState extends State<ChatPage> {
         title: Row(
           children: [
             Image.asset(
-              'assets/logo.png', // Replace with your logo path
+              'assets/logo.png',
               height: 40,
             ),
             const SizedBox(width: 12),
@@ -396,100 +389,155 @@ class ChatMessage extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 16.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            backgroundColor: isUser
-                ? Theme.of(context).colorScheme.secondary
-                : Theme.of(context).colorScheme.primary,
-            child: Icon(
-              isUser ? Icons.person : Icons.school,
-              color: Colors.white,
+        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        children: isUser
+            ? _buildUserMessage(context)
+            : _buildAiMessage(context),
+      ),
+    );
+  }
+
+  List<Widget> _buildUserMessage(BuildContext context) {
+    return [
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              'Vous',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.secondary,
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isUser ? 'Vous' : 'MathSolver AI',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+            const SizedBox(height: 4),
+            if (file != null) _buildFilePreview(context),
+            Container(
+              padding: const EdgeInsets.all(12.0),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.secondary.withOpacity(0.1),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  bottomLeft: Radius.circular(12),
+                  bottomRight: Radius.circular(12),
                 ),
-                const SizedBox(height: 4),
-                if (file != null)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: Colors.grey.shade300,
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      children: [
-                        if (fileName!.toLowerCase().endsWith('.png') ||
-                            fileName!.toLowerCase().endsWith('.jpg') ||
-                            fileName!.toLowerCase().endsWith('.jpeg'))
-                          ClipRRect(
-                            borderRadius:
-                                const BorderRadius.vertical(top: Radius.circular(8)),
-                            child: Image.file(
-                              file!,
-                              height: 150,
-                              width: double.infinity,
-                              fit: BoxFit.contain,
-                            ),
-                          )
-                        else if (fileName!.toLowerCase().endsWith('.pdf'))
-                          const Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: Icon(Icons.picture_as_pdf, size: 40, color: Colors.red),
-                          )
-                        else
-                          const Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: Icon(Icons.insert_drive_file, size: 40, color: Colors.grey),
-                          ),
-                        Container(
-                          padding: const EdgeInsets.all(8.0),
-                          color: Colors.grey.shade100,
-                          child: Row(
-                            children: [
-                              Icon(
-                                fileName!.toLowerCase().endsWith('.pdf')
-                                    ? Icons.picture_as_pdf
-                                    : Icons.insert_drive_file,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  fileName!,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                Container(
-                  padding: const EdgeInsets.all(12.0),
-                  decoration: BoxDecoration(
-                    color: isUser
-                        ? Theme.of(context).colorScheme.secondary.withOpacity(0.1)
-                        : Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+              ),
+              child: Text(
+                text,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onBackground,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(width: 12),
+      CircleAvatar(
+        backgroundColor: Theme.of(context).colorScheme.secondary,
+        child: const Icon(
+          Icons.person,
+          color: Colors.white,
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _buildAiMessage(BuildContext context) {
+    return [
+      CircleAvatar(
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        child: const Icon(
+          Icons.school,
+          color: Colors.white,
+        ),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'MathSolver AI',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            if (file != null) _buildFilePreview(context),
+            Container(
+              padding: const EdgeInsets.all(12.0),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(12),
+                  bottomLeft: Radius.circular(12),
+                  bottomRight: Radius.circular(12),
+                ),
+              ),
+              child: Text(
+                text,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onBackground,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  Widget _buildFilePreview(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: Colors.grey.shade300,
+        ),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          if (fileName!.toLowerCase().endsWith('.png') ||
+              fileName!.toLowerCase().endsWith('.jpg') ||
+              fileName!.toLowerCase().endsWith('.jpeg'))
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+              child: Image.file(
+                file!,
+                height: 150,
+                width: double.infinity,
+                fit: BoxFit.contain,
+              ),
+            )
+          else if (fileName!.toLowerCase().endsWith('.pdf'))
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Icon(Icons.picture_as_pdf, size: 40, color: Colors.red),
+            )
+          else
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Icon(Icons.insert_drive_file, size: 40, color: Colors.grey),
+            ),
+          Container(
+            padding: const EdgeInsets.all(8.0),
+            color: Colors.grey.shade100,
+            child: Row(
+              children: [
+                Icon(
+                  fileName!.toLowerCase().endsWith('.pdf')
+                      ? Icons.picture_as_pdf
+                      : Icons.insert_drive_file,
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
                   child: Text(
-                    text,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onBackground,
-                    ),
+                    fileName!,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
