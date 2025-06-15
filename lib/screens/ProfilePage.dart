@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
-import './AuthService.dart';
+import 'AuthService.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -14,9 +11,7 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
-  bool _notificationsEnabled = true;
-  bool _darkModeEnabled = false;
-  String _language = 'Français';
+  bool _hasError = false;
 
   @override
   void initState() {
@@ -26,148 +21,269 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _loadUserData() async {
     try {
-      final data = await AuthService.getUserData();
-      if (data != null) {
+      setState(() {
+        _isLoading = true;
+        _hasError = false;
+      });
+
+      final user = await AuthService.getCurrentUser();
+      
+      if (user == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Aucune donnée utilisateur trouvée'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
         setState(() {
-          _userData = data;
           _isLoading = false;
+          _hasError = true;
         });
-      } else {
-        final profile = await AuthService.getProfile();
+        return;
+      }
+
+      if (mounted) {
         setState(() {
-          _userData = profile['user'];
+          _userData = user;
           _isLoading = false;
+          _hasError = false;
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: ${e.toString()}')),
-      );
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _logout() async {
-    try {
-      await AuthService.logout();
-      Navigator.pushReplacementNamed(context, '/login');
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: ${e.toString()}')),
-      );
+      debugPrint('Erreur de chargement: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profil'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _logout,
+        title: const Text(
+          'Profil',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
           ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const SizedBox(height: 20),
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.primary,
-                  width: 3,
-                ),
-              ),
-              child: CircleAvatar(
-                backgroundColor: Colors.white,
-                child: Text(
-                  _userData?['first_name']?.toString().substring(0, 1).toUpperCase() ?? 'U',
-                  style: const TextStyle(fontSize: 48, color: Colors.black),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              '${_userData?['first_name'] ?? ''} ${_userData?['last_name'] ?? ''}',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _userData?['email'] ?? '',
-              style: TextStyle(color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 32),
-            _buildSettingsCard(context),
-            const SizedBox(height: 24),
-            _buildLogoutButton(context),
-          ],
         ),
+        backgroundColor: AuthService.primaryColor,
+        centerTitle: true,
       ),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(
+                color: AuthService.primaryColor,
+              ),
+            )
+          : _hasError || _userData == null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 60,
+                        color: Colors.grey,
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Impossible de charger les données',
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AuthService.primaryColor,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        onPressed: _loadUserData,
+                        child: const Text(
+                          'Réessayer',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 60,
+                        backgroundColor: AuthService.secondaryColor,
+                        child: const Icon(
+                          Icons.person,
+                          size: 60,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        '${_userData?['firstName'] ?? _userData?['first_name'] ?? ''} '
+                        '${_userData?['lastName'] ?? _userData?['last_name'] ?? ''}'
+                            .trim()
+                            .isEmpty
+                            ? 'Non renseigné'
+                            : '${_userData?['firstName'] ?? _userData?['first_name']} '
+                                '${_userData?['lastName'] ?? _userData?['last_name']}',
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        '@${_userData?['username'] ?? 'utilisateur'}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 30),
+                      Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              _buildProfileItem(
+                                icon: Icons.email,
+                                label: 'Email',
+                                value: _userData?['email'] ?? 'Non renseigné',
+                              ),
+                              const Divider(height: 24),
+                              _buildProfileItem(
+                                icon: Icons.person,
+                                label: 'Nom d\'utilisateur',
+                                value: _userData?['username'] ?? 'Non renseigné',
+                              ),
+                              const Divider(height: 24),
+                              _buildProfileItem(
+                                icon: Icons.calendar_today,
+                                label: 'Membre depuis',
+                                value: _userData?['createdAt'] != null ||
+                                        _userData?['date_joined'] != null
+                                    ? _formatDate(_userData?['createdAt'] ??
+                                        _userData?['date_joined'])
+                                    : 'Date non disponible',
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 30),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AuthService.primaryColor,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          onPressed: () async {
+                            await AuthService.logout();
+                            if (mounted) {
+                              Navigator.pushNamedAndRemoveUntil(
+                                context,
+                                '/',
+                                (route) => false,
+                              );
+                            }
+                          },
+                          child: const Text(
+                            'Déconnexion',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
     );
-
   }
-    Widget _buildSettingsCard(BuildContext context) {
-    return Card(
-      child: Column(
+
+  String _formatDate(String dateString) {
+    try {
+      final date = DateTime.parse(dateString).toLocal();
+      return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+    } catch (e) {
+      return dateString;
+    }
+  }
+
+  Widget _buildProfileItem({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SwitchListTile(
-            title: const Text('Notifications'),
-            value: _notificationsEnabled,
-            onChanged: (value) {
-              setState(() {
-                _notificationsEnabled = value;
-              });
-            },
-          ),
-          SwitchListTile(
-            title: const Text('Mode sombre'),
-            value: _darkModeEnabled,
-            onChanged: (value) {
-              setState(() {
-                _darkModeEnabled = value;
-              });
-            },
-          ),
-          ListTile(
-            title: const Text('Langue'),
-            subtitle: Text(_language),
-            trailing: const Icon(Icons.arrow_forward_ios),
-            onTap: () {
-              // Logique de sélection de langue à ajouter ici
-            },
+          Icon(icon, color: AuthService.primaryColor, size: 24),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
-
-  Widget _buildLogoutButton(BuildContext context) {
-    return ElevatedButton.icon(
-      icon: const Icon(Icons.logout),
-      label: const Text('Se déconnecter'),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.red,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      ),
-      onPressed: _logout,
-    );
-  }
-
-
-  // ... (rest of the ProfilePage code remains the same)
 }

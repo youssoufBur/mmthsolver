@@ -1,152 +1,195 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'AuthService.dart';
 
-class AuthService {
-  static const String baseUrl = 'https://dramane10.pythonanywhere.com/api';
-  static const String loginEndpoint = '$baseUrl/login/';
-  static const String registerEndpoint = '$baseUrl/register/';
-  static const String profileEndpoint = '$baseUrl/profile/';
-  static const String logoutEndpoint = '$baseUrl/logout/';
+class ProfilePage extends StatefulWidget {
+  const ProfilePage({super.key});
 
-  static Future<Map<String, dynamic>> login(
-      String username, String password) async {
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  Map<String, dynamic>? _userData;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
     try {
-      final response = await http.post(
-        Uri.parse(loginEndpoint),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: json.encode({
-          'username': username,
-          'password': password,
-        }),
-      );
-
-      final data = json.decode(response.body);
-      
-      if (response.statusCode == 200 && data['status'] == 'success') {
-        // Save token and user data
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('auth_token', data['token']);
-        await prefs.setString('user_data', json.encode(data['user']));
-        return data;
-      } else {
-        throw Exception(data['message'] ?? 'Échec de la connexion');
-      }
+      final user = await AuthService.getCurrentUser();
+      setState(() {
+        _userData = user;
+        _isLoading = false;
+      });
     } catch (e) {
-      throw Exception('Erreur de connexion: $e');
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
-  static Future<Map<String, dynamic>> register({
-    required String username,
-    required String email,
-    required String password,
-    required String firstName,
-    required String lastName,
-  }) async {
-    try {
-      final response = await http.post(
-        Uri.parse(registerEndpoint),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: json.encode({
-          'username': username,
-          'email': email,
-          'password': password,
-          'first_name': firstName,
-          'last_name': lastName,
-        }),
-      );
-
-      final data = json.decode(response.body);
-      
-      if (response.statusCode == 200 && data['status'] == 'success') {
-        return data;
-      } else {
-        throw Exception(data['message'] ?? 'Échec de l\'inscription');
-      }
-    } catch (e) {
-      throw Exception('Erreur d\'inscription: $e');
-    }
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Profil'),
+        backgroundColor: AuthService.primaryColor,
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: AuthService.primaryColor))
+          : _userData == null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('Aucune donnée utilisateur'),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AuthService.primaryColor,
+                        ),
+                        onPressed: _loadUserData,
+                        child: const Text('Réessayer'),
+                      ),
+                    ],
+                  ),
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 60,
+                        backgroundColor: AuthService.secondaryColor,
+                        child: const Icon(
+                          Icons.person,
+                          size: 60,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        '${_userData!['first_name'] ?? ''} ${_userData!['last_name'] ?? ''}'.trim().isEmpty
+                            ? 'Non renseigné'
+                            : '${_userData!['first_name']} ${_userData!['last_name']}',
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        '@${_userData!['username']}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 30),
+                      Card(
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              _buildProfileItem(
+                                icon: Icons.email,
+                                label: 'Email',
+                                value: _userData!['email'] ?? 'Non renseigné',
+                              ),
+                              const Divider(height: 24),
+                              _buildProfileItem(
+                                icon: Icons.person,
+                                label: 'Nom d\'utilisateur',
+                                value: _userData!['username'] ?? 'Non renseigné',
+                              ),
+                              const Divider(height: 24),
+                              _buildProfileItem(
+                                icon: Icons.calendar_today,
+                                label: 'Membre depuis',
+                                value: _userData!['date_joined'] != null 
+                                    ? DateTime.parse(_userData!['date_joined']).toLocal().toString().split(' ')[0]
+                                    : 'Date non disponible',
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 30),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          onPressed: () async {
+                            await AuthService.logout();
+                            Navigator.pushNamedAndRemoveUntil(
+                              context,
+                              '/',
+                              (route) => false,
+                            );
+                          },
+                          child: const Text(
+                            'Déconnexion',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+    );
   }
 
-  static Future<Map<String, dynamic>> getProfile() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
-      
-      if (token == null) {
-        throw Exception('Non authentifié');
-      }
-
-      final response = await http.get(
-        Uri.parse(profileEndpoint),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Token $token',
-        },
-      );
-
-      final data = json.decode(response.body);
-      
-      if (response.statusCode == 200 && data['status'] == 'success') {
-        return data;
-      } else {
-        throw Exception(data['message'] ?? 'Échec du chargement du profil');
-      }
-    } catch (e) {
-      throw Exception('Erreur de profil: $e');
-    }
-  }
-
-  static Future<void> logout() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
-      
-      if (token == null) {
-        throw Exception('Non authentifié');
-      }
-
-      final response = await http.post(
-        Uri.parse(logoutEndpoint),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Token $token',
-        },
-      );
-
-      // Clear local storage
-      await prefs.remove('auth_token');
-      await prefs.remove('user_data');
-      
-      if (response.statusCode != 200) {
-        throw Exception('Échec de la déconnexion');
-      }
-    } catch (e) {
-      throw Exception('Erreur de déconnexion: $e');
-    }
-  }
-
-  static Future<bool> isLoggedIn() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.containsKey('auth_token');
-  }
-
-  static Future<Map<String, dynamic>?> getUserData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userData = prefs.getString('user_data');
-    return userData != null ? json.decode(userData) : null;
+  Widget _buildProfileItem({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: AuthService.primaryColor, size: 24),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }

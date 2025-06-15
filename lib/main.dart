@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import './screens/chat_page.dart';
 import './screens/history_page.dart';
-import './screens/ProfilePage.dart';
+import './screens/profile_page.dart';
+import './screens/LoginPage.dart';
+import './screens/AuthService.dart';
 
 void main() {
   runApp(const MathSolverApp());
@@ -16,7 +18,7 @@ class MathSolverApp extends StatelessWidget {
       title: 'MathSolver',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFF57C00), // Orange
+          seedColor: const Color(0xFFF57C00),
           primary: const Color(0xFFF57C00),
           secondary: const Color(0xFF26A69A),
           surface: const Color(0xFFFFFFFF),
@@ -36,7 +38,23 @@ class MathSolverApp extends StatelessWidget {
           backgroundColor: Color(0xFFF57C00),
         ),
       ),
-      home: const HomePage(),
+      home: FutureBuilder(
+        future: AuthService.isLoggedIn(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.done) {
+            return snapshot.data == true ? const HomePage() : LoginPage(
+              onLoginSuccess: () {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (context) => const HomePage()),
+                );
+              },
+            );
+          }
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        },
+      ),
       debugShowCheckedModeBanner: false,
     );
   }
