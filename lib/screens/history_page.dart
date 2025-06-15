@@ -11,7 +11,7 @@ class HistoryPage extends StatefulWidget {
 }
 
 class _HistoryPageState extends State<HistoryPage> {
-  final String _apiEndpoint = 'https://4335-102-180-159-126.ngrok-free.app/api/user/problems/';
+  final String _apiEndpoint = 'https://dramane10.pythonanywhere.com/api/user/problems/';
   List<dynamic> _historyItems = [];
   bool _isLoading = true;
   String _errorMessage = '';

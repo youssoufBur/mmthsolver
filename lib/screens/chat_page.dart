@@ -21,7 +21,7 @@ class _ChatPageState extends State<ChatPage> {
   bool _isLoading = false;
   String _fileName = ''; // Correctly declared as non-final
   final ImagePicker _picker = ImagePicker();
-  final String _apiEndpoint = 'https://4335-102-180-159-126.ngrok-free.app/api/solve/';
+  final String _apiEndpoint = 'https://dramane10.pythonanywhere.com/api/solve/';
 
   @override
   void dispose() {

@@ -7,7 +7,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
-  static const String baseUrl = 'https://4335-102-180-159-126.ngrok-free.app/api';
+  static const String baseUrl = 'https://dramane10.pythonanywhere.com/api';
   static const String loginEndpoint = '$baseUrl/login/';
   static const String registerEndpoint = '$baseUrl/register/';
   static const String profileEndpoint = '$baseUrl/profile/';
