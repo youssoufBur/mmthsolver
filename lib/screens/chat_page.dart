@@ -128,32 +128,56 @@ class _ChatPageState extends State<ChatPage> {
         allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx', 'txt'],
       );
 
-      if (result != null) {
+      if (result != null && result.files.single.path != null) {
         setState(() {
           _selectedFile = File(result.files.single.path!);
           _fileName = result.files.single.name;
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors de la sélection du fichier: ${e.toString()}')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de la sélection du fichier: ${e.toString()}')),
+        );
+      }
+      debugPrint('File picker error: $e');
     }
   }
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      final pickedFile = await _picker.pickImage(source: source);
-      if (pickedFile != null) {
+      final XFile? pickedFile = await _picker.pickImage(
+        source: source,
+        maxWidth: 1800,
+        maxHeight: 1800,
+        imageQuality: 85,
+      );
+
+      if (pickedFile != null && mounted) {
+        final File imageFile = File(pickedFile.path);
+        final int fileSize = await imageFile.length();
+
+        if (fileSize > 5 * 1024 * 1024) { // 5MB max
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('L\'image est trop volumineuse (max 5MB)')),
+            );
+          }
+          return;
+        }
+
         setState(() {
-          _selectedFile = File(pickedFile.path);
+          _selectedFile = imageFile;
           _fileName = 'image_${DateTime.now().millisecondsSinceEpoch}.jpg';
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors de la sélection de l\'image: ${e.toString()}')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de la sélection de l\'image: ${e.toString()}')),
+        );
+      }
+      debugPrint('Image picker error: $e');
     }
   }
 
@@ -216,15 +240,17 @@ class _ChatPageState extends State<ChatPage> {
 
     final responseText = await _sendToAPI(text, _selectedFile);
 
-    setState(() {
-      _messages.add(ChatMessage(
-        text: responseText,
-        isUser: false,
-      ));
-      _selectedFile = null;
-      _fileName = '';
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _messages.add(ChatMessage(
+          text: responseText,
+          isUser: false,
+        ));
+        _selectedFile = null;
+        _fileName = '';
+        _isLoading = false;
+      });
+    }
   }
 
   @override
